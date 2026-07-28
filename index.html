@@ -1,0 +1,107 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Index — apps-privacy</title>
+  <meta name="description" content="Index of HTML pages in the nourddinak/apps-privacy repository" />
+  <style>
+    :root{--bg:#fff;--text:#111;--muted:#666;--accent:#0366d6}
+    [data-theme="dark"]{--bg:#0b1220;--text:#e6eef8;--muted:#9fb0d1;--accent:#58a6ff}
+    *{box-sizing:border-box}
+    body{font-family:Inter,ui-sans-serif,system-ui,Segoe UI,Roboto,Helvetica,Arial;background:var(--bg);color:var(--text);margin:0;padding:28px;}
+    .container{max-width:900px;margin:0 auto}
+    h1{font-size:20px;margin-bottom:6px}
+    p.lead{color:var(--muted);margin-top:0;margin-bottom:18px}
+    .controls{display:flex;gap:12px;align-items:center;margin-bottom:14px}
+    input[type=search]{padding:8px 10px;border:1px solid #ddd;border-radius:6px;width:320px}
+    button{background:transparent;border:1px solid #ddd;padding:8px 10px;border-radius:6px;cursor:pointer}
+    ul.list{list-style:none;padding:0;margin:0}
+    li.item{padding:12px;border:1px solid #eee;border-radius:8px;margin-bottom:10px;display:flex;justify-content:space-between;align-items:center}
+    a.name{color:var(--accent);text-decoration:none;font-weight:600}
+    .meta{color:var(--muted);font-size:13px}
+    .note{margin-top:18px;color:var(--muted);font-size:13px}
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>Site index — HTML files in this repository</h1>
+    <p class="lead">This page lists .html files found at the repository root (fetched from the GitHub API) and links to them so you can preview pages hosted in the repo.</p>
+
+    <div class="controls">
+      <input id="q" type="search" placeholder="Filter by name..." aria-label="search" />
+      <button id="refresh">Refresh list</button>
+      <button id="toggle-theme">Toggle theme</button>
+    </div>
+
+    <ul id="list" class="list" aria-live="polite"></ul>
+
+    <p class="note">Note: this page uses the public GitHub REST API to discover files. If you open index.html locally (file:///) the API request may be blocked by the browser — view it via GitHub Pages or a local server (python -m http.server) for best results.</p>
+  </div>
+
+  <script>
+    const owner = 'nourddinak';
+    const repo = 'apps-privacy';
+    const branch = 'main';
+    const listEl = document.getElementById('list');
+    const qEl = document.getElementById('q');
+
+    async function fetchHtmlFiles() {
+      listEl.innerHTML = '<li class="item meta">Loading…</li>';
+      try {
+        const api = `https://api.github.com/repos/${owner}/${repo}/contents?ref=${branch}`;
+        const res = await fetch(api);
+        if (!res.ok) throw new Error(res.status + ' ' + res.statusText);
+        const files = await res.json();
+        // files is an array of items (file/dir)
+        const htmlFiles = files.filter(f => f.type === 'file' && f.name.toLowerCase().endsWith('.html'))
+          // exclude this index file if it's present
+          .filter(f => f.name.toLowerCase() !== 'index.html')
+          .sort((a,b)=> a.name.localeCompare(b.name));
+
+        renderList(htmlFiles);
+      } catch (err) {
+        listEl.innerHTML = `<li class="item meta">Could not fetch repository contents: ${err.message}</li>`;
+      }
+    }
+
+    function renderList(files) {
+      if (!files || files.length === 0) {
+        listEl.innerHTML = '<li class="item meta">No HTML files found in repository root.</li>';
+        return;
+      }
+      const q = (qEl.value || '').toLowerCase().trim();
+      const items = files
+        .filter(f => f.name.toLowerCase().includes(q))
+        .map(f => {
+          // link using relative path so the link works on GitHub Pages and local server
+          const href = './' + encodeURIComponent(f.name);
+          const htmlUrl = f.html_url || '';
+          return `
+            <li class="item">
+              <div>
+                <a class="name" href="${href}">${escapeHtml(f.name)}</a>
+                <div class="meta">${escapeHtml(f.path || '')} — <a href="${htmlUrl}" target="_blank" rel="noopener">view on GitHub</a></div>
+              </div>
+              <div class="meta">${f.size} bytes</div>
+            </li>`;
+        });
+      listEl.innerHTML = items.join('\n');
+    }
+
+    // small helper to avoid injecting raw names
+    function escapeHtml(s){ return String(s).replace(/[&<>\"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":"&#39;"})[c]); }
+
+    document.getElementById('refresh').addEventListener('click', fetchHtmlFiles);
+    qEl.addEventListener('input', () => fetchHtmlFiles());
+    document.getElementById('toggle-theme').addEventListener('click', () => {
+      const html = document.documentElement;
+      const next = html.getAttribute('data-theme') === 'dark' ? 'light' : 'dark';
+      html.setAttribute('data-theme', next);
+    });
+
+    // initial load
+    fetchHtmlFiles();
+  </script>
+</body>
+</html>
